@@ -2,107 +2,220 @@
 
 ## Overview
 
-This project focuses on enhancing cross-current forecasting for the Port of Amsterdam using machine learning techniques. The goal is to improve upon existing legacy neural network models by incorporating Acoustic Doppler Current Profiler (ADCP) measurements and freshwater outflow estimates.
+This project focuses on enhancing cross-current forecasting for the Port of Amsterdam using machine learning techniques. The goal is to improve upon existing legacy neural network models by incorporating environmental measurements including wind direction, water height, flow rate, and flow direction.
 
 ## Project Goals
 
 - **Primary Objective**: Enhance the accuracy and reliability of cross-current forecasting at the Port of Amsterdam
-- **Data Integration**: Combine ADCP measurements with freshwater outflow estimates
-- **Model Improvement**: Develop and validate improved forecasting models
-- **Operational Deployment**: Create models suitable for real-time operational use
+- **Data Integration**: Process and combine multiple environmental data sources
+- **Model Development**: Implement Gaussian Process and Neural Network models for forecasting
+- **Feature Engineering**: Create robust features for improved prediction accuracy
 
 ## Data Sources
 
-- **ADCP Measurements**: Acoustic Doppler Current Profiler data providing current velocity profiles
-- **Freshwater Outflow Estimates**: River discharge and freshwater flow data
-- **Historical Data**: Legacy forecasting data and validation records
+The project uses the following environmental measurements:
+- **Wind Direction**: Wind direction in degrees
+- **Water Height**: Water height in centimeters
+- **Flow Rate**: Water current speed in cm/s
+- **Flow Direction**: Water current direction in degrees
 
 ## Project Structure
 
 ```
 ijmuiden_cross-current/
-├── data/                    # Raw and processed data files
-│   ├── 20250702_033.csv    # Main ADCP dataset
-│   ├── 20250702_034.csv    # Additional dataset
-│   └── *.zip               # Compressed data files
-├── notebooks/              # Jupyter notebooks for analysis
-│   ├── exploration_01.ipynb # Initial data exploration
-│   └── baseline_model.ipynb # Baseline model development
-├── src/                    # Source code
-│   ├── data_utils.py       # Data processing utilities
-│   └── main.py            # Main application entry point
-├── requirements.txt        # Python package requirements
-├── environment.yml         # Conda environment configuration
-└── README.md              # Project documentation
+├── data/ # Data directory (not tracked in git)
+│ ├── raw/ # Raw CSV data files
+│ └── processed/ # Processed and normalized data
+├── notebooks/ # Jupyter notebooks for analysis
+│ ├── preprocessing.ipynb # Data preprocessing and exploration
+│ ├── feat_eng.ipynb # Feature engineering
+│ ├── gaussian.ipynb # Gaussian Process modeling
+│ └── neuralnet.ipynb # Neural Network modeling
+├── src/ # Source code
+│ ├── data/ # Data processing modules
+│ │ ├── ingest.py # Data ingestion and preprocessing
+│ │ └── features.py # Feature engineering utilities
+│ ├── models/ # Model implementations
+│ │ └── base.py # Base model classes
+│ └── utils/ # Utility functions
+│ └── data_utils.py # Data utilities
+├── scripts/ # Executable scripts
+│ ├── ingest_data.py # Data ingestion script
+│ ├── train.py # Model training script
+│ ├── predict.py # Prediction script
+│ └── eval.py # Model evaluation script
+├── models/ # Saved model files
+├── tests/ # Unit tests
+├── environment.yml # Conda environment configuration
+└── README.md # Project documentation
 ```
 
 ## Setup Instructions
 
-### Option 1: Using Conda (Recommended)
+### Prerequisites
 
-1. **Create the conda environment**:
+- Python 3.9+
+- Conda or Miniconda
+
+### Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/ijmuiden_cross-current.git
+   cd ijmuiden_cross-current
+   ```
+
+2. **Create the conda environment**:
    ```bash
    conda env create -f environment.yml
    ```
 
-2. **Activate the environment**:
+3. **Activate the environment**:
    ```bash
    conda activate ijmuiden-crosscurrent
    ```
 
-3. **Verify installation**:
+4. **Verify installation**:
    ```bash
-   python -c "import pandas, numpy, matplotlib, seaborn; print('All packages installed successfully!')"
+   python -c "import pandas, numpy, torch, gpytorch; print('All packages installed successfully!')"
    ```
 
-### Option 2: Using pip
+## Data Setup
 
-1. **Create a virtual environment**:
+### Data Requirements
+
+Place your raw data files in the `data/raw/` directory. The system expects CSV files with the following structure:
+
+- **wind_direction.csv**: Wind direction measurements
+- **water_height.csv**: Water height measurements  
+- **flow_rate.csv**: Water current speed measurements
+- **flow_direction.csv**: Water current direction measurements
+
+### Data Processing
+
+1. **Run data ingestion**:
    ```bash
-   python -m venv ijmuiden-env
-   source ijmuiden-env/bin/activate  # On Windows: ijmuiden-env\Scripts\activate
+   python scripts/ingest_data.py
+   ```
+   
+   This will:
+   - Load and clean raw data
+   - Calculate normalization parameters
+   - Save processed data to `data/processed/`
+   - Generate normalization parameters file
+
+2. **Check processed data**:
+   ```bash
+   ls data/processed/
    ```
 
-2. **Install requirements**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Usage
 
-## Getting Started
+### Data Preprocessing
 
-1. **Start Jupyter Notebook**:
-   ```bash
-   jupyter notebook
-   ```
+Start with the preprocessing notebook to understand your data:
 
-2. **Open the exploration notebook**:
-   - Navigate to `notebooks/exploration_01.ipynb`
-   - Run the cells to explore your data
+```bash
+jupyter notebook notebooks/preprocessing.ipynb
+```
 
-3. **Data Exploration**:
-   - The notebook will automatically load and analyze your data
-   - Visualize distributions, correlations, and time series patterns
-   - Identify key features for forecasting
+This notebook will:
+- Load and explore the raw data
+- Perform data cleaning and validation
+- Generate data quality reports
+- Create initial visualizations
+
+### Feature Engineering
+
+Use the feature engineering notebook to create predictive features:
+
+```bash
+jupyter notebook notebooks/feat_eng.ipynb
+```
+
+### Model Development
+
+#### Gaussian Process Models
+
+```bash
+jupyter notebook notebooks/gaussian.ipynb
+```
+
+The Gaussian Process implementation includes:
+- Spatio-temporal kernel design
+- Multi-output prediction
+- Uncertainty quantification
+
+#### Neural Network Models
+
+```bash
+jupyter notebook notebooks/neuralnet.ipynb
+```
+
+### Scripts
+
+#### Data Ingestion
+```bash
+python scripts/ingest_data.py
+```
+
+#### Model Training
+```bash
+python scripts/train.py
+```
+
+#### Predictions
+```bash
+python scripts/predict.py
+```
+
+#### Model Evaluation
+```bash
+python scripts/eval.py
+```
 
 ## Key Features
 
-- **Automated Data Loading**: Smart loading with fallback options for large datasets
-- **Data Quality Analysis**: Missing value detection and data type analysis
-- **Visualization**: Comprehensive plotting of distributions, correlations, and time series
-- **Time Series Analysis**: Automatic datetime handling and temporal pattern detection
+### Data Processing
+- **Automated Ingestion**: Smart CSV parsing with error handling
+- **Data Cleaning**: Outlier removal and missing value handling
+- **Normalization**: Z-score normalization with parameter persistence
+- **Type Safety**: Automatic data type conversion and validation
 
-## Next Steps
+### Model Development
+- **Gaussian Processes**: Spatio-temporal modeling with custom kernels
+- **Neural Networks**: Deep learning approaches for time series
+- **Feature Engineering**: Temporal and spatial feature extraction
+- **Cross-validation**: Robust model evaluation
 
-1. **Data Understanding**: Run the exploration notebook to understand your data structure
-2. **Feature Engineering**: Identify and create relevant features for forecasting
-3. **Model Development**: Build baseline and advanced forecasting models
-4. **Validation**: Implement cross-validation and performance metrics
-5. **Deployment**: Prepare models for operational use
+### Visualization
+- **Time Series Plots**: Temporal pattern analysis
+- **Correlation Analysis**: Feature relationship exploration
+- **Model Diagnostics**: Performance and uncertainty visualization
 
-## Contributing
+## Data Format
 
-This is an internship project at VORtech. For questions or contributions, please contact the project supervisor.
+### Input Data Structure
+
+Raw CSV files should contain:
+- `WAARNEMINGDATUM`: Date column
+- `WAARNEMINGTIJD (MET/CET)`: Time column
+- `NUMERIEKEWAARDE`: Measurement value
+- `X`, `Y`: Spatial coordinates (optional)
+
+### Processed Data Output
+
+The ingestion process creates:
+- Cleaned and normalized CSV files
+- Normalization parameters (JSON)
+- Data quality reports
 
 ## License
 
 This project is proprietary to VORtech and the Port of Amsterdam.
+
+## Acknowledgments
+
+- VORtech for project supervision
+- Port of Amsterdam for data and domain expertise
+- Open source community for the tools and libraries used
