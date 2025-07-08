@@ -58,7 +58,7 @@ class DataIngester:
 
         self.norm_params = {}
 
-    def _get_normalization_params(self, extracted_df: pd.DataFrame, data_type: str) -> Dict:
+    def _get_normalization_params(self, extracted_df: pd.DataFrame, data_type: str) -> dict[str, dict[str, float]]:
         """
         Calculate normalization parameters for a given data type.
         
