@@ -136,6 +136,8 @@ class DataIngester:
             # Handle different date formats
             if '-' in date_str:
                 date_parts = date_str.split('-')
+                if len(date_parts) != 3:
+                    return None
                 if len(date_parts[0]) == 4:  # YYYY-MM-DD format
                     return datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
                 else:  # DD-MM-YYYY format
@@ -176,6 +178,10 @@ class DataIngester:
                     
                     if date_col in df.columns and time_col in df.columns:
                         dt = self._parse_datetime(str(row[date_col]), str(row[time_col]))
+                        # skip for invalid datetime format
+                        if dt is None:
+                            continue
+
                         row_data['datetime'] = dt
                         row_data['datetime_unix'] = dt.timestamp() if dt else None
                     else:
@@ -221,6 +227,8 @@ class DataIngester:
                                     continue
                                 else:  # For optional columns like coordinates, set to None
                                     row_data[column_name] = None
+
+                        # if column_name is not in df.columns, we do the following:
                         else:
                             # Handle missing columns
                             if column_name == 'NUMERIEKEWAARDE':  # Skip rows without main value
@@ -289,9 +297,8 @@ class DataIngester:
                 
                 mean_val = params['mean'][column_name]
                 std_val = params['std'][column_name]
-                normalized_column_name = f"{column_name}_normalized"
                 
-                normalized_df[normalized_column_name] = (df[column_name] - mean_val) / std_val
+                normalized_df[column_name] = (df[column_name] - mean_val) / std_val
                 logger.debug(f"Normalized {column_name} using mean={mean_val:.2f}, std={std_val:.2f}")
         
         return normalized_df
@@ -346,6 +353,10 @@ class DataIngester:
         
         # Dictionary to store processed data for each type
         processed_data = {}
+
+        # min max_timestamp, max min_timestamp
+        max_timestamp = []
+        min_timestamp = []
         
         # Process each file
         for file_path in csv_files:
@@ -358,6 +369,9 @@ class DataIngester:
                     # Clean the data
                     cleaned_df = self._clean_data(extracted_df)
                     self._get_normalization_params(cleaned_df, data_type)
+
+                    max_timestamp.append(cleaned_df['datetime'].max())
+                    min_timestamp.append(cleaned_df['datetime'].min())
                     
                     if not cleaned_df.empty:
                         # Normalize the data
@@ -378,7 +392,15 @@ class DataIngester:
         #         logger.info(f"Final dataset for {data_type}: {len(combined_df)} records")
         #     else:
         #         logger.warning(f"No data found for {data_type}")
-        
+
+        # align the timestamps such that no one data type has more data than the other.
+        # we can either extend the data to the min max_timestamp or truncate the data to the smallest min_timestamp. for now, we truncate.
+        for data_type, df in processed_data.items():
+            if df is not None and not df.empty:
+                # keep data between max min_timestamp and min max_timestamp
+                df = df[(df['datetime'] >= max(min_timestamp)) & (df['datetime'] <= min(max_timestamp))]
+                processed_data[data_type] = df
+
         return processed_data
     
     def save_processed_data(self, processed_data: Dict[str, pd.DataFrame]):
@@ -419,6 +441,10 @@ class DataIngester:
             for data_type, df in processed_data.items():
                 if df is not None and not df.empty:
                     print(f"{data_type}: {len(df)} records")
+                    print(f"min timestamp: {df['datetime'].min()}")
+                    print(f"max timestamp: {df['datetime'].max()}")
+                    print(f"max value: {df['NUMERIEKEWAARDE'].max()}")
+                    print(f"min value: {df['NUMERIEKEWAARDE'].min()}")
                 else:
                     print(f"{data_type}: No data found")
             print("="*50)
