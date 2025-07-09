@@ -49,12 +49,13 @@ class DataIngester:
         self.processed_data_dir = Path(processed_data_dir)
         self.processed_data_dir.mkdir(parents=True, exist_ok=True)
         self.relevant_columns = {
-            'NUMERIEKEWAARDE': float,
-            'WAARNEMINGDATUM': str,
-            'WAARNEMINGTIJD (MET/CET)': str,
+            'value': float,
+            'timeStamp': str,
             'X': float,
             'Y': float,
         }
+        self.date_col = 'timeStamp'
+        self.value_col = 'value'
 
         self.norm_params = {}
 
@@ -130,22 +131,36 @@ class DataIngester:
         
         logger.info(f"Saved normalization parameters to {norm_params_file}")
     
-    def _parse_datetime(self, date_str: str, time_str: str) -> datetime:
-        """Parse date and time strings into datetime object."""
+    def _parse_datetime(self, date_str: str) -> Optional[datetime]:
+        """
+        Parse datetime string into datetime object.
+        Handles various formats including ISO 8601 with 'Z' timezone.
+        
+        Args:
+            date_str: Date string to parse
+            
+        Returns:
+            datetime object or None if parsing fails
+        """
         try:
-            # Handle different date formats
-            if '-' in date_str:
-                date_parts = date_str.split('-')
-                if len(date_parts) != 3:
-                    return None
-                if len(date_parts[0]) == 4:  # YYYY-MM-DD format
-                    return datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+            # Handle ISO 8601 format with 'Z' timezone (UTC)
+            if 'T' in date_str and 'Z' in date_str:
+                # Remove 'Z' and parse as UTC
+                dt_str = date_str.replace('Z', '+00:00')
+                return datetime.fromisoformat(dt_str)
+            
+            # Handle other formats (your existing logic)
+            elif '-' in date_str:
+                # Handle YYYY-MM-DD HH:MM:SS format
+                if len(date_str.split('-')[0]) == 4:  # YYYY-MM-DD format
+                    return datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
                 else:  # DD-MM-YYYY format
-                    return datetime.strptime(f"{date_str} {time_str}", "%d-%m-%Y %H:%M:%S")
+                    return datetime.strptime(date_str, "%d-%m-%Y %H:%M:%S")
             else:
-                return datetime.strptime(f"{date_str} {time_str}", "%d/%m/%Y %H:%M:%S")
+                return datetime.strptime(date_str, "%d/%m/%Y %H:%M:%S")
+                
         except Exception as e:
-            logger.warning(f"Could not parse datetime: {date_str} {time_str}. Error: {e}")
+            logger.warning(f"Could not parse datetime: {date_str}. Error: {e}")
             return None
     
     def _extract_data_from_csv(self, file_path: Path) -> Optional[pd.DataFrame]:
@@ -162,7 +177,7 @@ class DataIngester:
             logger.info(f"Processing {file_path}")
             
             # Read the CSV file
-            df = pd.read_csv(file_path, sep=';')
+            df = pd.read_csv(file_path)
             
             # Extract relevant columns
             result_data = []
@@ -173,11 +188,8 @@ class DataIngester:
                     row_data = {}
                     
                     # Extract datetime first (special handling)
-                    date_col = 'WAARNEMINGDATUM'
-                    time_col = 'WAARNEMINGTIJD (MET/CET)'
-                    
-                    if date_col in df.columns and time_col in df.columns:
-                        dt = self._parse_datetime(str(row[date_col]), str(row[time_col]))
+                    if self.date_col in df.columns:
+                        dt = self._parse_datetime(str(row[self.date_col]))
                         # skip for invalid datetime format
                         if dt is None:
                             continue
@@ -189,7 +201,7 @@ class DataIngester:
                     
                     # Extract other columns based on their types
                     for column_name, column_type in self.relevant_columns.items():
-                        if column_name in ['WAARNEMINGDATUM', 'WAARNEMINGTIJD (MET/CET)']:  # Skip date/time as they're handled above
+                        if column_name in [self.date_col]:  # Skip date/time as they're handled above
                             continue
                             
                         if column_name in df.columns and pd.notna(row[column_name]):
@@ -223,7 +235,7 @@ class DataIngester:
                                     
                             except (ValueError, TypeError) as e:
                                 logger.warning(f"Could not convert {column_name} to {column_type.__name__}: {raw_value}. Error: {e}")
-                                if column_name == 'NUMERIEKEWAARDE':  # Skip rows with invalid main values
+                                if column_name == self.value_col:  # Skip rows with invalid main values
                                     continue
                                 else:  # For optional columns like coordinates, set to None
                                     row_data[column_name] = None
@@ -231,13 +243,13 @@ class DataIngester:
                         # if column_name is not in df.columns, we do the following:
                         else:
                             # Handle missing columns
-                            if column_name == 'NUMERIEKEWAARDE':  # Skip rows without main value
+                            if column_name == self.value_col:  # Skip rows without main value
                                 continue
                             else:  # For optional columns, set to None
                                 row_data[column_name] = None
                     
                     # Only add row if we have the essential data (datetime and value)
-                    if 'datetime' in row_data and 'NUMERIEKEWAARDE' in row_data:
+                    if 'datetime' in row_data and self.value_col in row_data:
                         result_data.append(row_data)
                     
                 except Exception as e:
@@ -320,7 +332,7 @@ class DataIngester:
         
         # Remove rows with missing datetime
         cleaned_df = cleaned_df.dropna(subset=['datetime'])
-        cleaned_df = cleaned_df.dropna(subset=['NUMERIEKEWAARDE'])
+        cleaned_df = cleaned_df.dropna(subset=[self.value_col])
         
         # Remove extreme outliers (values beyond 3 standard deviations)
         # if len(cleaned_df) > 10:
@@ -443,8 +455,8 @@ class DataIngester:
                     print(f"{data_type}: {len(df)} records")
                     print(f"min timestamp: {df['datetime'].min()}")
                     print(f"max timestamp: {df['datetime'].max()}")
-                    print(f"max value: {df['NUMERIEKEWAARDE'].max()}")
-                    print(f"min value: {df['NUMERIEKEWAARDE'].min()}")
+                    print(f"max value: {df['value'].max()}")
+                    print(f"min value: {df['value'].min()}")
                 else:
                     print(f"{data_type}: No data found")
             print("="*50)
