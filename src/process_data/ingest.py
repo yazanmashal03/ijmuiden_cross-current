@@ -13,6 +13,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import warnings
+import re
 warnings.filterwarnings('ignore')
 
 # Set up logging
@@ -45,14 +46,12 @@ class DataIngester:
             raw_data_dir: Directory containing raw CSV files
             processed_data_dir: Directory to save processed data
         """
-        self.raw_data_dir = Path("data/raw_test")
-        self.processed_data_dir = Path("data/test")
+        self.raw_data_dir = Path("data/raw")
+        self.processed_data_dir = Path("data/processed")
         self.processed_data_dir.mkdir(parents=True, exist_ok=True)
         self.relevant_columns = {
             'value': float,
             'timeStamp': str,
-            'X': float,
-            'Y': float,
         }
         self.date_col = 'timeStamp'
         self.value_col = 'value'
@@ -162,6 +161,120 @@ class DataIngester:
         except Exception as e:
             logger.warning(f"Could not parse datetime: {date_str}. Error: {e}")
             return None
+    
+    def _parse_rws_text_file(self, file_path):
+        """
+        Parse RWS text file format.
+        
+        Args:
+            file_path: Path to the text file
+            
+        Returns:
+            DataFrame with columns: datetime, value, location_code, measurement_type
+        """
+        data = []
+        metadata = {}
+
+        # Dutch month abbreviations mapping
+        dutch_months = {
+            'jan': '01', 'feb': '02', 'mrt': '03', 'apr': '04',
+            'mei': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+            'sep': '09', 'okt': '10', 'nov': '11', 'dec': '12'
+        }
+
+        def parse_dutch_date(date_str, time_str):
+            """Parse Dutch date format."""
+            # Extract day, month, year
+            day, month, year = date_str.split('-')
+            
+            # Convert Dutch month abbreviation to number
+            month_num = dutch_months.get(month.lower(), '01')
+            
+            # Create standard format
+            standard_date = f"{day}-{month_num}-{year}"
+            
+            # Parse with standard format
+            datetime_str = f"{standard_date} {time_str}"
+            return datetime.strptime(datetime_str, "%d-%m-%Y %H:%M")
+        
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+        
+        # Parse header line
+        if len(lines) >= 1:
+            header_parts = lines[0].strip().split()
+            if len(header_parts) >= 5:
+                metadata['start_date'] = header_parts[0]
+                metadata['start_time'] = header_parts[1]
+                metadata['end_date'] = header_parts[2]
+                metadata['end_time'] = header_parts[3]
+                metadata['interval_minutes'] = int(header_parts[4])
+        
+        # Parse location and measurement type
+        if len(lines) >= 2:
+            location_parts = lines[1].strip().split()
+            if len(location_parts) >= 2:
+                metadata['location_code'] = location_parts[0]
+                metadata['measurement_type'] = location_parts[1]
+        
+        # Parse data lines (skip first 3 lines)
+        count = 0
+        for line in lines[3:]:
+            print(count)
+            count += 1
+            line = line.strip()
+            if line == '':
+                continue
+                
+            # Parse data line: "01-jan-2015 00:00          890"
+            # Split by whitespace and handle multiple spaces
+            parts = re.split(r'\s+', line.strip())
+            
+            if len(parts) >= 3:
+                try:
+                    # Combine date and time
+                    date_str = parts[0]  # "01-jan-2015"
+                    time_str = parts[1]  # "00:00"
+                    value = parts[2]  # "890" or "*"
+                    
+                    # Parse datetime
+                    dt = parse_dutch_date(date_str, time_str)
+
+                    if value == '*':
+                        value = None
+                    else:
+                        value = float(value)
+                    
+                    data.append({
+                        'datetime': dt,
+                        'datetime_unix': dt.timestamp(),
+                        'value': value,
+                        'location_code': metadata.get('location_code', ''),
+                        'measurement_type': metadata.get('measurement_type', '')
+                    })
+                    
+                except (ValueError, IndexError) as e:
+                    print(f"Error parsing line: {line} - {e}")
+                    continue
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        if not df.empty:
+            # Add metadata as additional columns
+            df['start_date'] = metadata.get('start_date', '')
+            df['end_date'] = metadata.get('end_date', '')
+            df['interval_minutes'] = metadata.get('interval_minutes', '')
+            
+            # Sort by datetime
+            df = df.sort_values('datetime').reset_index(drop=True)
+            
+            print(f"Parsed {len(df)} data points")
+            print(f"Date range: {df['datetime'].min()} to {df['datetime'].max()}")
+            print(f"Location: {metadata.get('location_code', 'Unknown')}")
+            print(f"Measurement type: {metadata.get('measurement_type', 'Unknown')}")
+        
+        return df
     
     def _extract_data_from_csv(self, file_path: Path) -> Optional[pd.DataFrame]:
         """
@@ -360,8 +473,8 @@ class DataIngester:
         logger.info("Starting data processing...")
         
         # Get all CSV files
-        csv_files = list(self.raw_data_dir.glob("*.csv"))
-        logger.info(f"Found {len(csv_files)} CSV files to process")
+        csv_files = list(self.raw_data_dir.glob("*.txt"))
+        logger.info(f"Found {len(csv_files)} files to process")
         
         # Dictionary to store processed data for each type
         processed_data = {}
@@ -375,7 +488,7 @@ class DataIngester:
             try:
                 # Extract data
                 data_type = file_path.stem
-                extracted_df = self._extract_data_from_csv(file_path)
+                extracted_df = self._parse_rws_text_file(file_path)
                 
                 if extracted_df is not None and not extracted_df.empty:
                     # Clean the data

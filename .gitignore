@@ -1,1 +1,4 @@
 data/
+src/__pycache__/
+src/process_data/__pycache__/
+src/utils/__pycache__/

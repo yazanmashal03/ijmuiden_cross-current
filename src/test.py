@@ -10,7 +10,7 @@ def main():
     print(f"Using device: {device}")
 
     # Load data
-    data_path = 'data/test'
+    data_path = 'data/processed'
     data_dict = load_data(data_path)
 
     # check if the data is loaded correctly
