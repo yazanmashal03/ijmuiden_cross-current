@@ -37,7 +37,7 @@ def setup_environment():
 class DataIngester:
     """Class to handle data ingestion and preprocessing."""
     
-    def __init__(self, raw_data_dir: str = "data/raw", processed_data_dir: str = "data/processed"):
+    def __init__(self):
         """
         Initialize the DataIngester.
         
@@ -45,8 +45,8 @@ class DataIngester:
             raw_data_dir: Directory containing raw CSV files
             processed_data_dir: Directory to save processed data
         """
-        self.raw_data_dir = Path(raw_data_dir)
-        self.processed_data_dir = Path(processed_data_dir)
+        self.raw_data_dir = Path("data/raw_test")
+        self.processed_data_dir = Path("data/test")
         self.processed_data_dir.mkdir(parents=True, exist_ok=True)
         self.relevant_columns = {
             'value': float,

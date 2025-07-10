@@ -14,7 +14,6 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import logging
 from typing import Dict, List, Optional, Any, Tuple
-import urllib.parse
 
 # Set up logging
 logging.basicConfig(
@@ -37,7 +36,8 @@ class RWSDataFetcher:
         self.session = requests.Session()
         
         # Create data directory if it doesn't exist
-        self.data_dir = Path("data/raw")
+        self.data_dir = Path("data/raw_test")
+        self.earliest_date = datetime(2025, 7, 9)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         logger.info(f"RWS Data fetcher initialized. Data will be saved to {self.data_dir}")
@@ -320,7 +320,7 @@ class RWSDataFetcher:
                 #     location_code=config["location_code"],
                 #     observation_type_id=config["observation_type_id"]
                 # )
-                earliest_date = datetime(2025, 1, 1)
+                earliest_date = self.earliest_date
                 
                 if earliest_date is None:
                     logger.error(f"Could not find earliest date for {data_type}")
