@@ -4,3 +4,10 @@ src/process_data/__pycache__/
 src/utils/__pycache__/
 fetch.log
 src/models_architecture/__pycache__/
+report/main.toc
+report/main.synctex.gz
+report/main.aux
+report/main.fdb_latexmk
+report/main.fls
+report/main.log
+report/main.out
