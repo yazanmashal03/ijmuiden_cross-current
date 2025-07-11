@@ -2,3 +2,5 @@ data/
 src/__pycache__/
 src/process_data/__pycache__/
 src/utils/__pycache__/
+fetch.log
+src/models_architecture/__pycache__/

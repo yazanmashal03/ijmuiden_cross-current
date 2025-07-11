@@ -2,15 +2,15 @@
 from utils.data_utils import *
 from models_architecture.lstm import *
 from train import evaluate_model, plot_predictions, analyze_feature_importance
-import pandas as pd
 
 def main():
     # Initialize device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+    sequence_length = 24
 
     # Load data
-    data_path = 'data/processed'
+    data_path = 'data/test'
     data_dict = load_data(data_path)
 
     # check if the data is loaded correctly
@@ -20,20 +20,15 @@ def main():
         print(f"Data loaded")
 
     # Prepare data
-    features, targets, feature_columns, target_column = prepare_current_direction_features(data_dict)
+    features, targets, feature_columns, target_column, datetimes = prepare_current_direction_features(data_dict)
     test_dataset = CrossCurrentDataset(features, targets, sequence_length=24)
+    datetimes = datetimes[sequence_length:]
 
     # Load model
-    model_name = 'lstm'
-    model_path = f'models/{model_name}.pth'
-    checkpoint = torch.load(model_path)
-
     model = LSTM(
     input_size=len(feature_columns),
     depth=1,
-    width=128,
-    dropout=0.2,
-    fc_dropout=0.3,
+    width=64,
     activation='relu'
 ).to(device)
     
@@ -43,10 +38,10 @@ def main():
     metrics, predictions, actuals = evaluate_model(model, test_dataset, device)
 
     # Plot predictions
-    plot_predictions(actuals, predictions, "Cross Current Prediction")
+    plot_predictions(actuals, predictions, datetimes, "Cross Current Prediction", mode="evaluation", max_time_points=len(predictions))
 
     # Analyze feature importance
-    importance_scores = analyze_feature_importance(model, feature_columns, test_dataset, device)
+    importance_scores = analyze_feature_importance(model, feature_columns, test_dataset, metrics, device)
 
     for metric, value in metrics.items():
         print(f"  {metric}: {value:.6f}")

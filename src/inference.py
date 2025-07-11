@@ -39,75 +39,6 @@ def denormalize_predictions(predictions, norm_params):
     
     return predictions * std_val + mean_val
 
-def plot_predictions(datetimes, predictions, title="Cross Current Predictions"):
-    """
-    Plot the predictions over time.
-    
-    Args:
-        predictions: Array of predictions
-        title: Title for the plot
-    """
-    plt.figure(figsize=(15, 8))
-    
-    # Time series plot
-    plt.subplot(2, 2, 1)
-    plt.plot(datetimes, predictions, linewidth=1, alpha=0.8)
-    plt.title(f'{title} - Time Series')
-    plt.xlabel('Datetime')
-    plt.ylabel('Cross Current')
-    plt.grid(True, alpha=0.3)
-    
-    # Histogram of predictions
-    plt.subplot(2, 2, 2)
-    plt.hist(predictions, bins=50, alpha=0.7, edgecolor='black')
-    plt.title(f'{title} - Distribution')
-    plt.xlabel('Cross Current')
-    plt.ylabel('Frequency')
-    plt.grid(True, alpha=0.3)
-    
-    # Rolling statistics
-    plt.subplot(2, 2, 3)
-    window_size = min(100, len(predictions) // 10)
-    if window_size > 1:
-        rolling_mean = pd.Series(predictions).rolling(window=window_size).mean()
-        rolling_std = pd.Series(predictions).rolling(window=window_size).std()
-        
-        plt.plot(predictions, alpha=0.5, label='Predictions', linewidth=0.5)
-        plt.plot(rolling_mean, label=f'Rolling Mean ({window_size} steps)', linewidth=2)
-        plt.fill_between(range(len(predictions)), 
-                        rolling_mean - rolling_std, 
-                        rolling_mean + rolling_std, 
-                        alpha=0.3, label='±1 Std Dev')
-        plt.title(f'{title} - Rolling Statistics')
-        plt.xlabel('Time Steps')
-        plt.ylabel('Cross Current')
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-    else:
-        plt.text(0.5, 0.5, 'Not enough data for rolling stats', 
-                ha='center', va='center', transform=plt.gca().transAxes)
-        plt.title(f'{title} - Rolling Statistics')
-    
-    # Summary statistics
-    plt.subplot(2, 2, 4)
-    stats_text = f"""
-    Statistics:
-    Count: {len(predictions):,}
-    Mean: {predictions.mean():.3f}
-    Std: {predictions.std():.3f}
-    Min: {predictions.min():.3f}
-    Max: {predictions.max():.3f}
-    Range: {predictions.max() - predictions.min():.3f}
-    """
-    plt.text(0.1, 0.5, stats_text, fontsize=12, verticalalignment='center',
-             bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.8))
-    plt.title(f'{title} - Summary Statistics')
-    plt.axis('off')
-    
-    plt.tight_layout()
-    plt.show()
-
-
 def predict_cross_current(features, feature_columns, model, device, norm_params, sequence_length=24):
     """
     Make predictions on new data.
@@ -197,7 +128,7 @@ def main():
     print(f"Std prediction: {predictions.std():.3f}")
     
     # Plot predictions
-    plot_predictions(datetimes, predictions)
+    plot_predictions(predictions, datetimes=datetimes, title="Inference for Cross Current Prediction", mode="inference", max_time_points=len(predictions))
     
     return 1
 

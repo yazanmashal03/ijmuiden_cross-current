@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import os
+import json
 
 def train_model(train_dataset, val_dataset, model, model_config, device):
     """
@@ -82,7 +83,7 @@ def train_model(train_dataset, val_dataset, model, model_config, device):
             patience_counter += 1
         
         # Print progress
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 10 == 0 or epoch == 0:
             print(f'Epoch [{epoch+1}/{model_config["epochs"]}], '
                   f'Train Loss: {train_loss:.6f}, '
                   f'Val Loss: {val_loss:.6f}, '
@@ -175,58 +176,11 @@ def evaluate_model(model, test_dataset, device):
     
     return metrics, predictions, actuals
 
-def plot_predictions(actuals, predictions, title="Current Direction Predictions vs Actual"):
-    """Plot predictions against actual values."""
-    plt.figure(figsize=(15, 10))
-    
-    # Scatter plot
-    plt.subplot(2, 2, 1)
-    plt.scatter(actuals, predictions, alpha=0.5)
-    plt.plot([actuals.min(), actuals.max()], [actuals.min(), actuals.max()], 'r--', lw=2)
-    plt.xlabel('Actual Cross Current')
-    plt.ylabel('Predicted Cross Current')
-    plt.title(f'{title} - Scatter Plot')
-    plt.grid(True)
-    
-    # Time series plot (first 200 points)
-    plt.subplot(2, 2, 2)
-    n_points = min(200, len(actuals))
-    plt.plot(actuals[:n_points], label='Actual', alpha=0.7)
-    plt.plot(predictions[:n_points], label='Predicted', alpha=0.7)
-    plt.xlabel('Time Steps')
-    plt.ylabel('Cross Current')
-    plt.title(f'{title} - Time Series (First {n_points} points)')
-    plt.legend()
-    plt.grid(True)
-    
-    # Residuals plot
-    plt.subplot(2, 2, 3)
-    residuals = actuals - predictions
-    plt.scatter(predictions, residuals, alpha=0.5)
-    plt.axhline(y=0, color='r', linestyle='--')
-    plt.xlabel('Predicted Cross Current')
-    plt.ylabel('Residuals')
-    plt.title('Residuals Plot')
-    plt.grid(True)
-    
-    # Residuals histogram
-    plt.subplot(2, 2, 4)
-    plt.hist(residuals, bins=50, alpha=0.7, edgecolor='black')
-    plt.xlabel('Residuals')
-    plt.ylabel('Frequency')
-    plt.title('Residuals Distribution')
-    plt.grid(True)
-    
-    plt.tight_layout()
-    plt.show()
-
-def analyze_feature_importance(model, feature_columns, test_dataset, device):
+def analyze_feature_importance(model, feature_columns, test_dataset, baseline_metrics, device):
     """Analyze feature importance using permutation importance."""
     
     # Get baseline performance
-    baseline_metrics, _, _ = evaluate_model(model, test_dataset, device)
     baseline_mse = baseline_metrics['MSE']
-    
     importance_scores = {}
     
     # Test each feature
@@ -269,7 +223,6 @@ def analyze_feature_importance(model, feature_columns, test_dataset, device):
     
     return importance_scores
 
-
 def main():
     """Main function to train the model."""
     # Initialize device
@@ -280,24 +233,24 @@ def main():
     data_dict = load_data(data_path)
 
     # Prepare data
-    features, targets, feature_columns, target_column = prepare_current_direction_features(data_dict)
+    features, targets, feature_columns, target_column, datetimes = prepare_current_direction_features(data_dict)
 
     # Create datasets
     sequence_length = 24
-    train_dataset, val_dataset, test_dataset = create_datasets(features, targets, sequence_length=sequence_length)
+    train_dataset, val_dataset, test_dataset = create_datasets(features, targets, train_split=0.8, val_split=0.1, sequence_length=sequence_length)
 
     # Initialize model
     input_size = train_dataset.data.shape[1]
     model_config = {
-        'depth': 1,
-        'width': 128,
-        'dropout': 0.2,
-        'fc_dropout': 0.3,
+        'depth': 4,
+        'width': 256,
+        'dropout': 0,
+        'fc_dropout': 0,
         'activation': 'relu',
         'batch_size': 32,
         'epochs': 100,
-        'learning_rate': 0.01,
-        'patience': np.inf,
+        'learning_rate': 0.001,
+        'patience': 10,
     }
 
     model = LSTM(
@@ -318,24 +271,14 @@ def main():
     # Evaluate model
     metrics, predictions, actuals = evaluate_model(model, test_dataset, device)
 
+    # Print the MSE
+    print(f"MSE: {metrics['MSE']:.6f}")
+
     # Plot predictions
-    plot_predictions(actuals, predictions, "Cross Current Prediction")
+    plot_predictions(actuals, predictions, datetimes, "Cross Current Prediction After Training", mode="evaluation", max_time_points=len(predictions))
 
     # Analyze feature importance
-    importance_scores = analyze_feature_importance(model, feature_columns, test_dataset, device)
-
-    for metric, value in metrics.items():
-        print(f"  {metric}: {value:.6f}")
-        print("\nTop 5 Most Important Features:")
-        sorted_features = sorted(importance_scores.items(), key=lambda x: x[1], reverse=True)
-        for i, (feature, importance) in enumerate(sorted_features[:5]):
-            print(f"  {i+1}. {feature}: {importance:.6f}")
-        print("\nModel Architecture:")
-        print(f"  LSTM Layers: {model_config['width']}")
-        print(f"  Hidden Size: {model_config['depth']}")
-        print(f"  Dropout: {model_config['dropout']}")
-        print(f"  Learning Rate: {model_config['learning_rate']}")
-        print("="*60)
+    # importance_scores = analyze_feature_importance(model, feature_columns, test_dataset, metrics, device)
 
 if __name__ == "__main__":
     main()

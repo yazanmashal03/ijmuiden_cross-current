@@ -46,8 +46,8 @@ class DataIngester:
             raw_data_dir: Directory containing raw CSV files
             processed_data_dir: Directory to save processed data
         """
-        self.raw_data_dir = Path("data/raw")
-        self.processed_data_dir = Path("data/processed")
+        self.raw_data_dir = Path("data/raw_test")
+        self.processed_data_dir = Path("data/test")
         self.processed_data_dir.mkdir(parents=True, exist_ok=True)
         self.relevant_columns = {
             'value': float,
@@ -472,9 +472,9 @@ class DataIngester:
         """
         logger.info("Starting data processing...")
         
-        # Get all CSV files
-        csv_files = list(self.raw_data_dir.glob("*.txt"))
-        logger.info(f"Found {len(csv_files)} files to process")
+        # Get all files. If CSV, we parse it as a CSV file. If txt, we parse it as a text file.
+        files = list(self.raw_data_dir.glob("*.csv")) + list(self.raw_data_dir.glob("*.txt"))
+        logger.info(f"Found {len(files)} files to process")
         
         # Dictionary to store processed data for each type
         processed_data = {}
@@ -484,11 +484,14 @@ class DataIngester:
         min_timestamp = []
         
         # Process each file
-        for file_path in csv_files:
+        for file_path in files:
             try:
                 # Extract data
                 data_type = file_path.stem
-                extracted_df = self._parse_rws_text_file(file_path)
+                if file_path.suffix == '.txt':
+                    extracted_df = self._parse_rws_text_file(file_path)
+                else:
+                    extracted_df = self._extract_data_from_csv(file_path)
                 
                 if extracted_df is not None and not extracted_df.empty:
                     # Clean the data
